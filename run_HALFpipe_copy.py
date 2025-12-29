@@ -13,38 +13,32 @@ def build_command(args):
 
     bind_arg = f"{args.bidsdir}:/data"
 
-    # Base command parts (common)
-    base_exec = ["singularity", "exec", "--bind", bind_arg, halfpipe_sif, "halfpipe"]
+    # Base command parts; exec for new tui; run for old ui
+    base_exec = ["singularity", "exec", "--bind", bind_arg, halfpipe_sif, "halfpipe", "--tui"]
     base_run  = ["singularity", "run",  "--bind", bind_arg, halfpipe_sif]
 
     # Choose mode
     if args.mode == "ui-old":
         # Old UI (singularity run ...)
-        cmd = base_run[:]
-        if args.verbose:
-            cmd.append("--verbose")
-        return cmd
-
-    if args.mode == "preproc":
-        # New terminal UI (no special flags)
-        cmd = base_exec[:]
-        if args.tui:
-            cmd.append("--tui")
+        cmd = base_run
         if args.verbose:
             cmd.append("--verbose")
         if args.debug:
             cmd.append("--debug")
         return cmd
 
-    if args.mode == "feature":
-        # only feature chunk
-        cmd = base_exec[:]
+    if args.mode == "preproc":
+        # New terminal UI (no special flags)
+        cmd = base_exec
+        if args.verbose:
+            cmd.append("--verbose")
+        if args.debug:
+            cmd.append("--debug")
+        return cmd
 
     if args.mode == "model":
-        # Your example: only model chunk
-        cmd = base_exec + ["--tui", "--only-model-chunk"]
-        if args.tui:
-            cmd.append("--tui")
+        # Run only model chunk
+        cmd = base_exec + ["--only-model-chunk"]
         if args.verbose:
             cmd.append("--verbose")
         if args.debug:
@@ -52,37 +46,18 @@ def build_command(args):
         return cmd
 
     if args.mode == "group-level":
-        # Example based on your commented block
+        # Use group-level command
         if not args.input_directory:
             raise RuntimeError("group-level requires --input-directory")
-        cmd = base_exec + [
-            "--tui",
-            "group-level",
-            "--input-directory",
-            args.input_directory,
-        ]
+        cmd = base_exec[:]
         if args.verbose:
             cmd.append("--verbose")
         if args.debug:
             cmd.append("--debug")
+        cmd += ["group-level", "--input-directory", args.input_directory]
         return cmd
 
     raise RuntimeError(f"Unknown mode: {args.mode}")
-
-
-def copy_dataset_description(bidsdir: str):
-    destdir = os.path.join(bidsdir, "derivatives", "halfpipe")
-    mrti = os.getenv("MRITB")
-    if not mrti:
-        print("Warning: MRITB is not set, cannot copy dataset_description.json", file=sys.stderr)
-        return
-
-    srcfile = os.path.join(mrti, "HALFpipe_utils", "dataset_description.json")
-    if os.path.exists(destdir):
-        shutil.copy(srcfile, destdir)
-        print(f"Copied {srcfile} to {destdir}.")
-    else:
-        print(f"Directory {destdir} does not exist.")
 
 
 def main():
@@ -94,7 +69,7 @@ def main():
     # Subcommand-like choice:
     parser.add_argument(
         "mode",
-        choices=["model", "tui", "ui-old", "group-level"],
+        choices=["ui-old", "preproc", "model", "group-level"],
         help="Which HALFpipe start mode to run.",
     )
 
@@ -106,7 +81,7 @@ def main():
     parser.add_argument(
         "--input-directory",
         type=str,
-        help="Used for group-level mode (path inside or outside container, depending on your setup).",
+        help="Used for group-level mode.",
     )
 
     args = parser.parse_args()
@@ -117,13 +92,9 @@ def main():
     print("Running command:\n ", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
-    copy_dataset_description(args.bidsdir)
-
     print("... done. Have a nice day!")
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-
-print("Hi Hannah")
