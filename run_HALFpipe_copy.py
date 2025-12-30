@@ -5,11 +5,20 @@ import sys
 import subprocess
 import shutil
 
+def add_common_flags(cmd, args):
+    if args.verbose:
+        cmd.append("--verbose")
+    if args.debug:
+        cmd.append("--debug")
+    return cmd
+
 def build_command(args):
     """Return the full singularity command list based on the selected mode."""
     halfpipe_sif = os.getenv("HALFpipe_sif")
     if not halfpipe_sif:
         raise RuntimeError("Environment variable HALFpipe_sif is not set.")
+    if not os.path.exists(halfpipe_sif):
+        raise RuntimeError(f"HALFpipe_sif does not exist: {halfpipe_sif}")
 
     bind_arg = f"{args.bidsdir}:/data"
 
@@ -20,40 +29,25 @@ def build_command(args):
     # Choose mode
     if args.mode == "ui-old":
         # Old UI (singularity run ...)
-        cmd = base_run
-        if args.verbose:
-            cmd.append("--verbose")
-        if args.debug:
-            cmd.append("--debug")
+        cmd = add_common_flags(base_run[:], args)
         return cmd
 
-    if args.mode == "preproc":
+    if args.mode == "tui":
         # New terminal UI (no special flags)
-        cmd = base_exec
-        if args.verbose:
-            cmd.append("--verbose")
-        if args.debug:
-            cmd.append("--debug")
+        cmd = add_common_flags(base_exec[:], args)
         return cmd
 
     if args.mode == "model":
         # Run only model chunk
-        cmd = base_exec + ["--only-model-chunk"]
-        if args.verbose:
-            cmd.append("--verbose")
-        if args.debug:
-            cmd.append("--debug")
+        cmd = add_common_flags(base_exec[:], args)
+        cmd.append("--only-model-chunk")
         return cmd
 
     if args.mode == "group-level":
         # Use group-level command
         if not args.input_directory:
             raise RuntimeError("group-level requires --input-directory")
-        cmd = base_exec[:]
-        if args.verbose:
-            cmd.append("--verbose")
-        if args.debug:
-            cmd.append("--debug")
+        cmd = add_common_flags(base_exec[:], args)
         cmd += ["group-level", "--input-directory", args.input_directory]
         return cmd
 
@@ -69,8 +63,10 @@ def main():
     # Subcommand-like choice:
     parser.add_argument(
         "mode",
-        choices=["ui-old", "preproc", "model", "group-level"],
-        help="Which HALFpipe start mode to run.",
+        nargs="?",
+        default="tui",
+        choices=["ui-old", "tui", "model", "group-level"],
+        help="Which HALFpipe start mode to run (default: tui).",
     )
 
     # Global toggles
