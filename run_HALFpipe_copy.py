@@ -20,10 +20,21 @@ def build_command(args):
     if not os.path.exists(halfpipe_sif):
         raise RuntimeError(f"HALFpipe_sif does not exist: {halfpipe_sif}")
 
-    bind_arg = f"{args.bidsdir}:/data"
+    bidsdir_arg = f"{args.bidsdir}:{args.bidsdir}"
+    workdir_arg = f"{args.workdir}:{args.workdir}"
+
+    binds = [bidsdir_arg, workdir_arg]
+
+    if args.seeddir:
+        if not os.path.isdir(args.seeddir):
+            raise RuntimeError(f"Seed-directory does not exist or is not a directory: {args.seeddir}")
+        seeddir_arg = f"{args.seeddir}:{args.seeddir}"
+        binds.append(seeddir_arg)
+
+    bind_arg = ",".join(binds)
 
     # Base command parts; exec for new tui; run for old ui
-    base_exec = ["singularity", "exec", "--bind", bind_arg, halfpipe_sif, "halfpipe", "--tui"]
+    base_exec = ["singularity", "exec", "--bind", bind_arg, halfpipe_sif, "halfpipe", "--tui"] # "--nipype-n-procs", "1", "--nipype-run-plugin", "Linear"
     base_run  = ["singularity", "run",  "--bind", bind_arg, halfpipe_sif]
 
     # Choose mode
@@ -60,6 +71,8 @@ def main():
     )
     parser.add_argument("bidsdir", type=str, help="Path to BIDS directory.")
 
+    parser.add_argument("workdir", type=str, help="Path to working and output directory.")
+
     # Subcommand-like choice:
     parser.add_argument(
         "mode",
@@ -80,8 +93,15 @@ def main():
         help="Used for group-level mode.",
     )
 
+    parser.add_argument(
+        "--seeddir",
+        type=str,
+        help="Path to directory containing binary seed masks (optional).",
+    )
+
     args = parser.parse_args()
     print(f"Directory containing BIDS data: {args.bidsdir}")
+    print(f"Working directory: {args.workdir}")
     print(f"Mode: {args.mode}")
 
     cmd = build_command(args)
