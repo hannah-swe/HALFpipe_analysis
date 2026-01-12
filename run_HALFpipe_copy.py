@@ -12,6 +12,15 @@ def add_common_flags(cmd, args):
         cmd.append("--debug")
     return cmd
 
+def add_halfpipe_advanced_flags(cmd, args):
+    if args.keep is not None:
+        cmd += ["--keep", args.keep]
+    if args.only_step:
+        cmd.append(f"--only-{args.only_step}")
+    if args.skip_step:
+        cmd.append(f"--skip-{args.skip_step}")
+    return cmd
+
 def build_command(args):
     """Return the full singularity command list based on the selected mode."""
     halfpipe_sif = os.getenv("HALFpipe_sif")
@@ -46,11 +55,13 @@ def build_command(args):
     if args.mode == "tui":
         # New terminal UI (no special flags)
         cmd = add_common_flags(base_exec[:], args)
+        cmd = add_halfpipe_advanced_flags(cmd, args)
         return cmd
 
     if args.mode == "model":
         # Run only model chunk
         cmd = add_common_flags(base_exec[:], args)
+        cmd = add_halfpipe_advanced_flags(cmd, args)
         cmd.append("--only-model-chunk")
         return cmd
 
@@ -59,6 +70,7 @@ def build_command(args):
         if not args.input_directory:
             raise RuntimeError("group-level requires --input-directory")
         cmd = add_common_flags(base_exec[:], args)
+        cmd = add_halfpipe_advanced_flags(cmd, args)
         cmd += ["group-level", "--input-directory", args.input_directory]
         return cmd
 
@@ -93,10 +105,40 @@ def main():
         help="Used for group-level mode.",
     )
 
+    # Some optional flags:
+    # Flag and directory need to be set to also bind this directory in singularity
     parser.add_argument(
         "--seeddir",
         type=str,
         help="Path to directory containing binary seed masks (optional).",
+    )
+
+    # HALFpipe default: keep some intermediate files; keep all is useful for debugging
+    parser.add_argument(
+        "--keep",
+        choices=["all", "some", "none"],
+        default=None,
+        help="Choose which intermediate files to keep (default: some).",
+    )
+
+    # Advanced HALFpipe use: option to either run only or skip a specific step
+    step_group = parser.add_mutually_exclusive_group(required=False)
+    step_group.add_argument(
+        "--only-step",
+        choices=["spec-ui", "workflow", "run"],
+        help="Run only a single HALFpipe step (advanced).",
+    )
+    step_group.add_argument(
+        "--skip-step",
+        choices=["spec-ui", "workflow", "run"],
+        help="Skip a single HALFpipe step (advanced).",
+    )
+
+    # Run-command will be printed in bash but not executed
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the constructed command and exit without running anything.",
     )
 
     args = parser.parse_args()
@@ -106,6 +148,9 @@ def main():
 
     cmd = build_command(args)
     print("Running command:\n ", " ".join(cmd))
+    if args.dry_run:
+        print("Dry-run enabled: command was NOT executed.")
+        return 0
     subprocess.run(cmd, check=True)
 
     print("... done. Have a nice day!")
