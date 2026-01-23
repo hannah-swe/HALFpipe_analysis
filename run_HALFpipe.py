@@ -241,7 +241,7 @@ def main():
         help="Number of processes/cores for Nipype (maps to HALFpipe --nipype-n-procs). "
              "If not set, a capped default is used.",
     )
-    default_max_procs = 50
+    default_max_procs = 100
 
     # Run-command will be printed in bash but not executed
     parser.add_argument(
