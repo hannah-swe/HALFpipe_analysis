@@ -16,8 +16,22 @@ def add_common_flags(cmd, args):
 def add_halfpipe_advanced_flags(cmd, args):
     if args.only_step:
         cmd.append(f"--only-{args.only_step}")
+        # only-run requires workdir
+        if args.only_step in ("run", "workflow"):
+            cmd += ["--workdir", args.workdir]
+    # TODO: implement --uuid if --only-run is used often
+
     if args.skip_step:
         cmd.append(f"--skip-{args.skip_step}")
+        # skipping spec-ui also requires workdir
+        if args.skip_step == "spec-ui":
+            cmd += ["--workdir", args.workdir]
+
+    if not os.path.isdir(args.workdir):
+        raise RuntimeError(
+            f"--workdir {args.workdir} does not exist but is required for {args.only_step or args.skip_step}"
+        )
+
     return cmd
 
 _RANGE_RE = re.compile(r"^(?P<a>sub-\d+|\d+)\s*-\s*(?P<b>sub-\d+|\d+)$")
