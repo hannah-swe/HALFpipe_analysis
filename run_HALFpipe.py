@@ -6,12 +6,38 @@ import subprocess
 import shutil
 import re
 
+# Config: change path to FreeSurfer license here:
+fs_license_source = "/data_wgs04/ag-sensomotorik/mritb-master/license.txt"
+
+def ensure_freesurfer_license(workdir: str, license_source: str, filename: str = "license.txt") -> str:
+    # Ensure FreeSurfer license file exists in workdir; if missing, copy from license_source.
+    dest = os.path.join(workdir, filename)
+
+    # If already present: do nothing
+    if os.path.isfile(dest):
+        return dest
+
+    # Otherwise copy from source; change path in main()
+    if not os.path.isfile(license_source):
+        raise RuntimeError(f"FreeSurfer license source file not found: {license_source}")
+
+    try:
+        shutil.copy2(license_source, dest)  # preserves timestamps/metadata
+    except PermissionError as e:
+        raise RuntimeError(f"No permission to copy FreeSurfer license to {dest}: {e}")
+    except OSError as e:
+        raise RuntimeError(f"Failed to copy FreeSurfer license to {dest}: {e}")
+
+    return dest
+
+
 def add_common_flags(cmd, args):
     if args.verbose:
         cmd.append("--verbose")
     if args.debug:
         cmd.append("--debug")
     return cmd
+
 
 def add_halfpipe_advanced_flags(cmd, args):
     if args.only_step:
@@ -35,6 +61,7 @@ def add_halfpipe_advanced_flags(cmd, args):
     return cmd
 
 _RANGE_RE = re.compile(r"^(?P<a>sub-\d+|\d+)\s*-\s*(?P<b>sub-\d+|\d+)$")
+
 
 def _normalize_one_subject_token(tok: str) -> str:
     tok = tok.strip()
@@ -61,6 +88,7 @@ def _normalize_one_subject_token(tok: str) -> str:
         "Expected formats are for example: "
         "'01', '1', 'sub-01', '01-03', or 'sub-01-sub-03'."
     )
+
 
 def expand_subject_tokens(tokens):
     """
@@ -103,6 +131,7 @@ def expand_subject_tokens(tokens):
             out.append(s)
     return out
 
+
 def add_subject_flags(cmd, args):
     if args.subject_include:
         try:
@@ -121,6 +150,7 @@ def add_subject_flags(cmd, args):
             cmd += ["--subject-exclude", sub]
 
     return cmd
+
 
 def build_command(args):
     """Return the full singularity command list based on the selected mode."""
@@ -265,6 +295,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    license_path = ensure_freesurfer_license(args.workdir, fs_license_source)
+    print(f"FreeSurfer license present: {license_path}")
 
     available = os.cpu_count() or 1
 
