@@ -152,6 +152,22 @@ def add_subject_flags(cmd, args):
     return cmd
 
 
+def add_subject_list_flag(cmd, args):
+    if args.subject_list:
+        subject_list_path = os.path.join(args.workdir, "rerun-subject-list.txt")
+
+        if not os.path.isfile(subject_list_path):
+            raise RuntimeError(
+                f"--subject-list was requested, but the file was not found:\n"
+                f"  {subject_list_path}\n"
+                f"Please create this file in the workdir before starting the rerun."
+            )
+
+        cmd += ["--subject-list", subject_list_path]
+
+    return cmd
+
+
 def build_command(args):
     """Return the full singularity command list based on the selected mode."""
     halfpipe_sif = os.getenv("HALFpipe_sif")
@@ -188,6 +204,7 @@ def build_command(args):
         cmd = add_common_flags(base_exec[:], args)
         cmd = add_halfpipe_advanced_flags(cmd, args)
         cmd = add_subject_flags(cmd, args)
+        cmd = add_subject_list_flag(cmd, args)
         cmd += ["--nipype-n-procs", str(args.n_procs)]
         return cmd
 
@@ -196,6 +213,7 @@ def build_command(args):
         cmd = add_common_flags(base_exec[:], args)
         cmd = add_halfpipe_advanced_flags(cmd, args)
         cmd = add_subject_flags(cmd, args)
+        cmd = add_subject_list_flag(cmd, args)
         cmd += ["--nipype-n-procs", str(args.n_procs)]
         cmd.append("--only-model-chunk")
         return cmd
@@ -207,6 +225,7 @@ def build_command(args):
         cmd = add_common_flags(base_exec[:], args)
         cmd = add_halfpipe_advanced_flags(cmd, args)
         cmd = add_subject_flags(cmd, args)
+        cmd = add_subject_list_flag(cmd, args)
         cmd += ["--nipype-n-procs", str(args.n_procs)]
         cmd += ["group-level", "--input-directory", args.input_directory]
         return cmd
@@ -278,6 +297,14 @@ def main():
         help="Exclude these subjects. Examples: 20 | sub-20 | 1-3 | 01-03",
     )
 
+    # Option to rerun a list of subjects via a .txt file
+    parser.add_argument(
+        "--subject-list",
+        action="store_true",
+        help="Use a subject list file from the workdir to rerun selected subjects.",
+    )
+
+    # Option to change number of cores
     parser.add_argument(
         "--n-procs",
         type=int,
